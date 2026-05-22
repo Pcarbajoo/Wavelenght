@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wavelength</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream: #F5F0E8;
+  --paper: #EDE7D9;
+  --ink:   #1A1208;
+  --warm:  #C8B99A;
+  --t1:    #C0392B;   /* Team 1 red */
+  --t2:    #1565C0;   /* Team 2 blue */
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--cream); color:var(--ink);
+  min-height:100vh; display:flex; flex-direction:column;
+  align-items:center; overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+.wrapper{
+  position:relative; z-index:1;
+  width:100%; max-width:560px;
+  padding:20px 16px 48px;
+  display:flex; flex-direction:column; align-items:center; gap:0;
+}
+
+/* HEADER */
+header{text-align:center; padding:16px 0 6px; width:100%;}
+header h1{
+  font-family:'DM Serif Display',serif;
+  font-size:clamp(2.2rem,8vw,3.2rem);
+  letter-spacing:-1px; line-height:1;
+}
+header p{font-size:0.78rem; color:var(--warm); letter-spacing:3px; text-transform:uppercase; margin-top:3px;}
+
+/* SCOREBOARD */
+.scoreboard{
+  display:flex; gap:0; margin:14px 0;
+  background:var(--ink); border-radius:16px; overflow:hidden;
+}
+.score-team{
+  padding:12px 28px; text-align:center;
+  color:var(--cream); font-size:0.72rem;
+  letter-spacing:2px; text-transform:uppercase;
+  transition:background .3s;
+}
+.score-team .pts{
+  display:block; font-family:'DM Serif Display',serif;
+  font-size:2rem; line-height:1; color:var(--cream);
+  transition:color .3s;
+}
+.score-team.t1-active{ background:#7B1009; }
+.score-team.t1-active .pts{ color:#FFB3AE; }
+.score-team.t2-active{ background:#0D3A6E; }
+.score-team.t2-active .pts{ color:#90CAF9; }
+.score-div{width:1px; background:rgba(255,255,255,0.12);}
+
+/* TURN LABEL */
+.turn-label{
+  display:inline-flex; align-items:center; gap:7px;
+  padding:6px 16px; border-radius:999px;
+  border:1.5px solid var(--warm);
+  font-size:0.75rem; font-weight:600;
+  letter-spacing:1.5px; text-transform:uppercase;
+  margin-bottom:10px;
+}
+.turn-dot{
+  width:8px; height:8px; border-radius:50%;
+  animation:pulse 1.1s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.3;transform:scale(.7);}}
+
+/* WHEEL WRAP — half-circle */
+.wheel-wrap{
+  position:relative;
+  width:min(480px,95vw);
+  /* height = radius = half of width */
+  height:min(240px,47.5vw);
+  margin:0 auto 6px;
+  user-select:none;
+  overflow:visible;
+}
+canvas#wc{
+  position:absolute; bottom:0; left:0;
+  width:100%; height:200%;   /* canvas is full circle, bottom half visible */
+  touch-action:none;
+  cursor:grab;
+}
+canvas#wc:active{cursor:grabbing;}
+
+/* RESULT */
+.result-banner{
+  width:100%; border-radius:14px; padding:14px 20px;
+  text-align:center; display:none; margin:8px 0;
+  animation:popIn .35s cubic-bezier(.34,1.56,.64,1) both;
+}
+.result-banner.show{display:block;}
+.result-banner .big{font-family:'DM Serif Display',serif; font-size:2rem; line-height:1;}
+.result-banner .lbl{font-size:0.75rem; letter-spacing:2px; text-transform:uppercase; margin-top:3px;}
+.r4{background:#E8F5E9; color:#1B5E20;}
+.r3{background:#FFFDE7; color:#E65100;}
+.r2{background:#FFF3E0; color:#BF360C;}
+.r0{background:#FFEBEE; color:#B71C1C;}
+
+/* STATUS */
+.status{
+  font-size:0.82rem; color:var(--warm);
+  letter-spacing:1px; text-transform:uppercase;
+  text-align:center; min-height:1.3em; margin:4px 0 10px;
+}
+
+/* BUTTONS */
+.btn-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:6px;}
+.btn{
+  padding:12px 26px; border:none; border-radius:999px;
+  font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
+  letter-spacing:.5px; cursor:pointer;
+  transition:transform .12s, box-shadow .12s;
+}
+.btn:hover {transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,0.15);}
+.btn:active{transform:translateY(0); box-shadow:none;}
+.btn-t1   {background:var(--t1); color:#fff;}
+.btn-t2   {background:var(--t2); color:#fff;}
+.btn-dark {background:var(--ink); color:var(--cream);}
+.btn-green{background:#2E7D32; color:#fff;}
+
+/* LEGEND */
+.legend{
+  display:flex; gap:14px; justify-content:center;
+  margin-top:10px; flex-wrap:wrap;
+}
+.leg-item{display:flex; align-items:center; gap:5px; font-size:0.75rem; color:var(--warm);}
+.leg-dot{width:12px;height:12px;border-radius:50%;}
+
+/* OVERLAY */
+#overlay{
+  position:fixed; inset:0;
+  background:rgba(26,18,8,.87);
+  display:none; align-items:center; justify-content:center;
+  z-index:100; backdrop-filter:blur(5px);
+}
+#overlay.show{display:flex;}
+.ov-card{
+  background:var(--cream); border-radius:24px;
+  padding:38px 44px; text-align:center; max-width:340px; width:90%;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+.ov-card h2{font-family:'DM Serif Display',serif; font-size:2.2rem; margin-bottom:6px;}
+.ov-card p{color:var(--warm); font-size:.88rem; margin-bottom:22px;}
+.final-scores{display:flex; justify-content:center; gap:32px; margin-bottom:26px;}
+.fs-team{text-align:center;}
+.fs-team .nm{font-size:.72rem; letter-spacing:2px; text-transform:uppercase; color:var(--warm);}
+.fs-team .vl{font-family:'DM Serif Display',serif; font-size:3.2rem; line-height:1;}
+.t1c{color:var(--t1);} .t2c{color:var(--t2);}
+
+@keyframes popIn{from{opacity:0;transform:scale(.85);}to{opacity:1;transform:scale(1);}}
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="ov-card">
+    <h2>Game Over!</h2>
+    <p id="winMsg"></p>
+    <div class="final-scores">
+      <div class="fs-team"><div class="nm">Team 1</div><div class="vl t1c" id="ft1">0</div></div>
+      <div class="fs-team"><div class="nm">Team 2</div><div class="vl t2c" id="ft2">0</div></div>
+    </div>
+    <button class="btn btn-dark" onclick="resetGame()">Play Again</button>
+  </div>
+</div>
+
+<div class="wrapper">
+
+  <header>
+    <h1>Wavelength</h1>
+    <p>A mind-reading party game</p>
+  </header>
+
+  <div class="scoreboard">
+    <div class="score-team" id="st1">
+      <span class="pts" id="s1">0</span>Team 1
+    </div>
+    <div class="score-div"></div>
+    <div class="score-team" id="st2">
+      <span class="pts" id="s2">0</span>Team 2
+    </div>
+  </div>
+
+  <div class="turn-label">
+    <span class="turn-dot" id="turnDot"></span>
+    <span id="turnTxt">Team 1's Turn</span>
+  </div>
+
+  <!-- SEMICIRCLE WHEEL -->
+  <div class="wheel-wrap">
+    <canvas id="wc" width="480" height="480"></canvas>
+  </div>
+
+  <div class="result-banner" id="resBanner">
+    <div class="big" id="resPts"></div>
+    <div class="lbl" id="resLbl"></div>
+  </div>
+
+  <div class="status" id="statusTxt">The Psychic secretly sees the target, then hides the wheel</div>
+
+  <div class="btn-row" id="btnRow">
+    <button class="btn btn-dark"  id="btnHide"   onclick="psychicReady()">Psychic Ready →</button>
+    <button class="btn btn-t1"    id="btnT1Lock"  onclick="lockTeam(0)"   style="display:none">Team 1 Lock In</button>
+    <button class="btn btn-t2"    id="btnT2Lock"  onclick="lockTeam(1)"   style="display:none">Team 2 Lock In</button>
+    <button class="btn btn-dark"  id="btnReveal"  onclick="reveal()"      style="display:none">Reveal 🎯</button>
+    <button class="btn btn-green" id="btnNext"    onclick="nextRound()"   style="display:none">Next Round →</button>
+  </div>
+
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#2E7D32"></div> Bullseye +4</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F9A825"></div> Close +3</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#E65100"></div> Near +2</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#B71C1C"></div> Miss 0</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#C0392B"></div> Team 1</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#1565C0"></div> Team 2</div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════
+const WIN   = 10;
+const CX    = 240, CY = 240, R = 220; // canvas centre & radius
+// The semicircle spans from PI (left) to 0 (right), i.e. the TOP half
+// In canvas coords: angle 0 = right, PI = left, and we draw the TOP semicircle
+// We represent dial positions as angle from 0..PI (left=0 .. right=PI mapped to "left pole .. right pole")
+// But we store actual canvas angles: left end = Math.PI, right end = 0
+
+const ARC_START = Math.PI;   // left end (canvas angle)
+const ARC_END   = 0;         // right end (canvas angle)
+
+// Zone half-widths in radians
+const Z4 = 9  * Math.PI / 180;
+const Z3 = 18 * Math.PI / 180;
+const Z2 = 27 * Math.PI / 180;
+
+// ══════════════════════════════════
+// STATE
+// ══════════════════════════════════
+let scores = [0, 0];
+let activeTeam = 0;           // whose round is it (0=T1,1=T2)
+
+// phase: 'psychic' | 't1_moving' | 't2_moving' | 't1_locked' | 't2_locked' | 'both_locked' | 'revealed'
+let phase = 'psychic';
+
+let targetAngle = Math.PI / 2; // hidden target (canvas angle, top = PI/2)
+let dialT1      = Math.PI / 2; // Team 1 needle
+let dialT2      = Math.PI / 2; // Team 2 needle
+let lockedT1    = false;
+let lockedT2    = false;
+
+let isDragging = false;
+let dragTeam   = -1;
+let lastMx = 0, lastMy = 0;
+
+// ══════════════════════════════════
+// CANVAS
+// ══════════════════════════════════
+const canvas = document.getElementById('wc');
+const ctx    = canvas.getContext('2d');
+
+function clampAngle(a) {
+  // clamp to [0, PI] (top semicircle in canvas space)
+  return Math.max(0.04, Math.min(Math.PI - 0.04, a));
+}
+
+function drawWheel(showTarget) {
+  ctx.clearRect(0, 0, 480, 480);
+
+  // ── Flat bottom edge (chord) ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, Math.PI, 0, false); // top half
+  ctx.lineTo(CX + R, CY);
+  ctx.lineTo(CX - R, CY);
+  ctx.closePath();
+
+  // Gradient left→right
+  const grad = ctx.createLinearGradient(CX - R, CY, CX + R, CY);
+  grad.addColorStop(0,    '#1565C0');
+  grad.addColorStop(0.3,  '#6A1B9A');
+  grad.addColorStop(0.7,  '#E65100');
+  grad.addColorStop(1,    '#B71C1C');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+
+  // ── Scoring zones (visible only after reveal) ──
+  if (showTarget) {
+    drawZone(targetAngle, Z2, 'rgba(230,81,0,0.55)');
+    drawZone(targetAngle, Z3, 'rgba(245,127,23,0.65)');
+    drawZone(targetAngle, Z4, 'rgba(46,125,50,0.82)');
+    // target line
+    drawNeedle(targetAngle, '#FFFFFF', 5, 0.9);
+  }
+
+  // ── Tick marks ──
+  for (let i = 0; i <= 20; i++) {
+    const a = Math.PI - (i / 20) * Math.PI; // PI→0 left to right
+    const long = i % 5 === 0;
+    const r1 = R - 4;
+    const r2 = r1 - (long ? 16 : 8);
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(a);
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth   = long ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(-r1, 0);
+    ctx.lineTo(-r2, 0);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── TEAM needles ──
+  const showT1 = phase !== 'psychic';
+  const showT2 = phase !== 'psychic' && phase !== 't1_moving';
+
+  if (showT1) drawNeedle(dialT1, '#C0392B', 4, 1);
+  if (showT2) drawNeedle(dialT2, '#1565C0', 4, 1);
+
+  // ── Outer arc ring ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, Math.PI, 0, false);
+  ctx.strokeStyle = '#3D2E1A';
+  ctx.lineWidth = 7;
+  ctx.stroke();
+  // flat base line
+  ctx.beginPath();
+  ctx.moveTo(CX - R, CY);
+  ctx.lineTo(CX + R, CY);
+  ctx.strokeStyle = '#3D2E1A';
+  ctx.lineWidth = 7;
+  ctx.stroke();
+  ctx.restore();
+
+  // ── Centre hub ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CX, CY, 16, 0, Math.PI*2);
+  ctx.fillStyle = '#1A1208';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(CX, CY, 8, 0, Math.PI*2);
+  ctx.fillStyle = '#3D2E1A';
+  ctx.fill();
+  ctx.restore();
+
+  // ── LEFT / RIGHT labels ──
+  ctx.save();
+  ctx.font = 'bold 14px DM Sans, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.textAlign = 'center';
+  ctx.fillText('◀', CX - R + 18, CY - 10);
+  ctx.fillText('▶', CX + R - 18, CY - 10);
+  ctx.restore();
+}
+
+function drawNeedle(angle, color, width, alpha) {
+  // angle is canvas angle (0=right, PI=left), needle points from centre to arc
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(CX, CY);
+  // convert: canvas angle → direction vector
+  // arc angle: 0=right (+x), PI=left (-x), so x = cos(angle), y = -sin(angle) for top half
+  const dx = Math.cos(angle);
+  const dy = -Math.sin(angle); // negative because top of screen is -y
+  const len = R - 10;
+
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur  = 8;
+
+  // needle triangle
+  const perp = { x: -dy * width, y: dx * width };
+  ctx.beginPath();
+  ctx.moveTo(perp.x, perp.y);
+  ctx.lineTo(dx * len, dy * len);
+  ctx.lineTo(-perp.x, -perp.y);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // tip circle
+  ctx.beginPath();
+  ctx.arc(dx * len, dy * len, 7, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawZone(centreAngle, halfWidth, color) {
+  // centreAngle is canvas angle (0..PI for top half)
+  // we draw a pie slice in the top semicircle
+  const a1 = centreAngle - halfWidth;
+  const a2 = centreAngle + halfWidth;
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  // arc in canvas angle: cos(a), -sin(a) direction → rotate by -a
+  ctx.arc(0, 0, R - 5,
+    -centreAngle - halfWidth,  // canvas arc angle from +x axis, going clockwise = negative
+    -centreAngle + halfWidth,
+    false
+  );
+  // Actually simpler: use standard arc but account for our coordinate mapping
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── Better zone drawing using actual arc angles ──
+function drawZone(centreAngle, halfWidth, color) {
+  // centreAngle: 0=right, PI=left, top-half only
+  // canvas arc: 0=right, going counterclockwise (negative) is upward
+  // Our needle at angle A points to: x=cos(A)*R, y=-sin(A)*R (top half when A in [0,PI])
+  // Standard canvas arc from 0 goes clockwise. To draw the top half:
+  //   arc(cx,cy, r, -PI, 0, false) draws top half clockwise? No...
+  // Let's just rotate the canvas instead:
+  ctx.save();
+  ctx.translate(CX, CY);
+  // rotate so centreAngle points upward from canvas perspective
+  // our angle A → canvas direction: cx + R*cos(A), cy - R*sin(A)
+  // that means canvas angle = -A (measured from +x, clockwise)
+  ctx.rotate(-centreAngle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, R - 5, -halfWidth, halfWidth);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── Pointer handling ──
+function getAngleFromPointer(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = 480 / rect.width;
+  const scaleY = 480 / rect.height;
+  const x = (clientX - rect.left) * scaleX - CX;
+  const y = (clientY - rect.top)  * scaleY - CY;
+  // our angle: cos(a)=x/r, sin(a)=-y/r  (top half: y is negative)
+  let a = Math.atan2(-y, x);
+  return clampAngle(a);
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (phase === 't1_moving' || phase === 't2_moving') {
+    isDragging = true;
+    dragTeam   = phase === 't1_moving' ? 0 : 1;
+  }
+});
+canvas.addEventListener('touchstart', e => {
+  if (phase === 't1_moving' || phase === 't2_moving') {
+    isDragging = true;
+    dragTeam   = phase === 't1_moving' ? 0 : 1;
+    e.preventDefault();
+  }
+}, {passive:false});
+
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const a = getAngleFromPointer(e.clientX, e.clientY);
+  if (dragTeam === 0) dialT1 = a;
+  else                dialT2 = a;
+  drawWheel(false);
+});
+window.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const t = e.touches[0];
+  const a = getAngleFromPointer(t.clientX, t.clientY);
+  if (dragTeam === 0) dialT1 = a;
+  else                dialT2 = a;
+  drawWheel(false);
+  e.preventDefault();
+}, {passive:false});
+
+window.addEventListener('mouseup',  () => isDragging = false);
+window.addEventListener('touchend', () => isDragging = false);
+
+// ══════════════════════════════════
+// GAME LOGIC
+// ══════════════════════════════════
+function randomTarget() {
+  // random angle in [0.15, PI-0.15]
+  return 0.15 + Math.random() * (Math.PI - 0.3);
+}
+
+function startRound() {
+  targetAngle = randomTarget();
+  dialT1 = Math.PI / 2;
+  dialT2 = Math.PI / 2;
+  lockedT1 = false;
+  lockedT2 = false;
+  phase = 'psychic';
+  hideResult();
+  setStatus('Psychic: secretly look at the target, then press Ready');
+  showBtns({ hide:true, t1:false, t2:false, reveal:false, next:false });
+  updateTurnLabel();
+  drawWheel(true); // psychic sees it
+}
+
+function psychicReady() {
+  phase = 't1_moving';
+  drawWheel(false); // hide target
+  setStatus('Team 1: drag your needle, then lock in');
+  showBtns({ hide:false, t1:true, t2:false, reveal:false, next:false });
+}
+
+function lockTeam(team) {
+  if (team === 0) {
+    lockedT1 = true;
+    phase = 't2_moving';
+    setStatus('Team 2: drag your needle, then lock in');
+    showBtns({ hide:false, t1:false, t2:true, reveal:false, next:false });
+  } else {
+    lockedT2 = true;
+    phase = 'both_locked';
+    setStatus('Both teams locked in — reveal the target!');
+    showBtns({ hide:false, t1:false, t2:false, reveal:true, next:false });
+  }
+  drawWheel(false);
+}
+
+function reveal() {
+  phase = 'revealed';
+  drawWheel(true);
+
+  const pts1 = calcScore(dialT1);
+  const pts2 = calcScore(dialT2);
+  scores[0] += pts1;
+  scores[1] += pts2;
+  updateScoreboard();
+
+  const best = Math.max(pts1, pts2);
+  showResult(pts1, pts2);
+  setStatus(
+    pts1 === 4 && pts2 === 4 ? '🎯 Both teams hit the bullseye!' :
+    pts1 === 4 ? '🔴 Team 1 nailed it!' :
+    pts2 === 4 ? '🔵 Team 2 nailed it!' :
+    best === 0 ? '❌ Both teams missed!' : '📍 Check the scores!'
+  );
+  showBtns({ hide:false, t1:false, t2:false, reveal:false, next:true });
+
+  if (scores[0] >= WIN || scores[1] >= WIN) {
+    setTimeout(showWinScreen, 1400);
+  }
+}
+
+function calcScore(dialAngle) {
+  let diff = Math.abs(dialAngle - targetAngle);
+  if (diff > Math.PI) diff = Math.PI*2 - diff;
+  if (diff <= Z4) return 4;
+  if (diff <= Z3) return 3;
+  if (diff <= Z2) return 2;
+  return 0;
+}
+
+function nextRound() {
+  activeTeam = 1 - activeTeam;
+  updateScoreboard();
+  startRound();
+}
+
+function resetGame() {
+  scores = [0,0];
+  activeTeam = 0;
+  document.getElementById('overlay').classList.remove('show');
+  startRound();
+}
+
+// ══════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════
+function showBtns(o) {
+  document.getElementById('btnHide').style.display   = o.hide   ? '' : 'none';
+  document.getElementById('btnT1Lock').style.display = o.t1     ? '' : 'none';
+  document.getElementById('btnT2Lock').style.display = o.t2     ? '' : 'none';
+  document.getElementById('btnReveal').style.display = o.reveal ? '' : 'none';
+  document.getElementById('btnNext').style.display   = o.next   ? '' : 'none';
+}
+
+function setStatus(txt) {
+  document.getElementById('statusTxt').textContent = txt;
+}
+
+function updateTurnLabel() {
+  const t = activeTeam === 0;
+  document.getElementById('turnTxt').textContent = `Team ${activeTeam+1}'s Round`;
+  document.getElementById('turnDot').style.background = t ? '#C0392B' : '#1565C0';
+}
+
+function updateScoreboard() {
+  document.getElementById('s1').textContent = scores[0];
+  document.getElementById('s2').textContent = scores[1];
+  document.getElementById('st1').className = 'score-team' + (activeTeam===0 ? ' t1-active':'');
+  document.getElementById('st2').className = 'score-team' + (activeTeam===1 ? ' t2-active':'');
+  updateTurnLabel();
+}
+
+function hideResult() {
+  document.getElementById('resBanner').className = 'result-banner';
+}
+
+function showResult(pts1, pts2) {
+  const b   = document.getElementById('resBanner');
+  const top = Math.max(pts1, pts2);
+  const cls = top===4?'r4': top===3?'r3': top===2?'r2':'r0';
+  document.getElementById('resPts').innerHTML =
+    `<span style="color:#C0392B">T1: +${pts1}</span> &nbsp; <span style="color:#1565C0">T2: +${pts2}</span>`;
+  document.getElementById('resLbl').textContent =
+    pts1===4&&pts2===4 ? 'Double bullseye!' :
+    pts1===4 ? 'Team 1 bullseye!' :
+    pts2===4 ? 'Team 2 bullseye!' :
+    `Team 1: ${scoreLabel(pts1)} · Team 2: ${scoreLabel(pts2)}`;
+  b.className = `result-banner show ${cls}`;
+}
+
+function scoreLabel(p) {
+  return p===4?'Bullseye':p===3?'Close':p===2?'Near miss':'Miss';
+}
+
+function showWinScreen() {
+  const w = scores[0]>scores[1]?'Team 1':scores[1]>scores[0]?'Team 2':'Tie';
+  document.getElementById('winMsg').textContent =
+    w==='Tie' ? "It's a tie!" : `${w} wins! 🎉`;
+  document.getElementById('ft1').textContent = scores[0];
+  document.getElementById('ft2').textContent = scores[1];
+  document.getElementById('overlay').classList.add('show');
+}
+
+// ── START ──
+startRound();
+</script>
+</body>
+</html>
